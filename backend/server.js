@@ -17,22 +17,23 @@ app.use(express.json());
 
 // App level state for Mongo status
 app.locals.isMongoConnected = false;
+app.locals.mongoError = null;
 
 // Connect to MongoDB
 mongoose
   .connect(MONGODB_URI, {
-    serverSelectionTimeoutMS: 3000,
+    serverSelectionTimeoutMS: 10000,
   })
   .then(() => {
     app.locals.isMongoConnected = true;
     console.log('✅ Connected to MongoDB successfully!');
   })
-  .catch((err) => {
-    app.locals.isMongoConnected = false;
-    console.warn('⚠️ MongoDB connection warning:', err.message);
-    console.log('💡 Running with JSON local fallback storage for high availability.');
-  });
+ .catch((err) => {
+  app.locals.isMongoConnected = false;
+  app.locals.mongoError = err.message;
 
+  console.error('❌ MongoDB connection failed:', err.message);
+});
 mongoose.connection.on('error', (err) => {
   app.locals.isMongoConnected = false;
   console.warn('Mongo Connection Error:', err.message);
@@ -43,6 +44,7 @@ app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
     mongoConnected: app.locals.isMongoConnected,
+    mongoError: app.locals.mongoError,
     timestamp: new Date().toISOString(),
   });
 });
